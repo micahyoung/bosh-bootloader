@@ -79,6 +79,7 @@ type zones interface {
 type boshManager interface {
 	Create(storage.State, []byte) (storage.State, error)
 	Delete(storage.State) error
+	GetDeploymentVars(storage.State) (string, error)
 }
 
 type envIDManager interface {
