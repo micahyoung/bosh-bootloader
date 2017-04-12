@@ -158,6 +158,18 @@ var _ = Describe("GCPUp", func() {
 			Expect(gcpClientProvider.SetConfigCall.Receives.Zone).To(Equal("some-zone"))
 		})
 
+		It("saves the terraform output to bbl state", func() {
+			err := gcpUp.Execute(commands.GCPUpConfig{
+				ServiceAccountKey: serviceAccountKeyPath,
+				ProjectID:         "some-project-id",
+				Zone:              "some-zone",
+				Region:            "us-west1",
+			}, storage.State{})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(stateStore.SetCall.Receives[4].State.TerraformOutput).To(Equal("something"))
+		})
+
 		It("sets the serviceAccountKey from the path", func() {
 			err := gcpUp.Execute(commands.GCPUpConfig{
 				ServiceAccountKey: serviceAccountKeyPath,
