@@ -140,7 +140,7 @@ func main() {
 	awsUp := commands.NewAWSUp(
 		credentialValidator, infrastructureManager, keyPairSynchronizer, boshManager,
 		availabilityZoneRetriever, certificateDescriber,
-		cloudConfigManager, stateStore, clientProvider, envIDManager)
+		cloudConfigManager, stateStore, clientProvider, envIDManager, terraformManager)
 
 	awsCreateLBs := commands.NewAWSCreateLBs(
 		logger, credentialValidator, certificateManager, infrastructureManager,

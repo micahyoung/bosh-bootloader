@@ -23,6 +23,7 @@ var _ = Describe("AWSUp", func() {
 		var (
 			command                   commands.AWSUp
 			boshManager               *fakes.BOSHManager
+			terraformManager          *fakes.TerraformManager
 			infrastructureManager     *fakes.InfrastructureManager
 			keyPairSynchronizer       *fakes.KeyPairSynchronizer
 			availabilityZoneRetriever *fakes.AvailabilityZoneRetriever
@@ -41,6 +42,8 @@ var _ = Describe("AWSUp", func() {
 				PrivateKey: "some-private-key",
 				PublicKey:  "some-public-key",
 			}
+
+			terraformManager = &fakes.TerraformManager{}
 
 			infrastructureManager = &fakes.InfrastructureManager{}
 			infrastructureManager.CreateCall.Returns.Stack = cloudformation.Stack{
@@ -90,9 +93,8 @@ var _ = Describe("AWSUp", func() {
 
 			command = commands.NewAWSUp(
 				credentialValidator, infrastructureManager, keyPairSynchronizer, boshManager,
-				availabilityZoneRetriever, certificateDescriber,
-				cloudConfigManager, stateStore,
-				clientProvider, envIDManager,
+				availabilityZoneRetriever, certificateDescriber, cloudConfigManager,
+				stateStore, clientProvider, envIDManager, terraformManager,
 			)
 		})
 
@@ -195,11 +197,83 @@ var _ = Describe("AWSUp", func() {
 			err := command.Execute(commands.AWSUpConfig{}, incomingState)
 			Expect(err).NotTo(HaveOccurred())
 
+			Expect(terraformManager.ApplyCall.CallCount).To(Equal(0))
+			Expect(infrastructureManager.CreateCall.CallCount).To(Equal(1))
 			Expect(infrastructureManager.CreateCall.Receives.StackName).To(Equal("stack-bbl-lake-time-stamp"))
 			Expect(infrastructureManager.CreateCall.Receives.KeyPairName).To(Equal("keypair-bbl-lake-time-stamp"))
 			Expect(infrastructureManager.CreateCall.Receives.AZs).To(Equal([]string{"some-retrieved-az"}))
 			Expect(infrastructureManager.CreateCall.Receives.EnvID).To(Equal("bbl-lake-time-stamp"))
 			Expect(infrastructureManager.CreateCall.Returns.Error).To(BeNil())
+		})
+
+		PContext("when the terraform flag is provided", func() {
+			BeforeEach(func() {
+				terraformManager.ApplyCall.Returns.BBLState = storage.State{
+					IAAS: "aws",
+					AWS: storage.AWS{
+						Region:          "some-aws-region",
+						SecretAccessKey: "some-secret-access-key",
+						AccessKeyID:     "some-access-key-id",
+					},
+					EnvID: "bbl-lake-time-stamp",
+					KeyPair: storage.KeyPair{
+						Name:       "keypair-bbl-lake-time-stamp",
+						PrivateKey: "some-private-key",
+						PublicKey:  "some-public-key",
+					},
+					TFState: "some-tf-state",
+				}
+			})
+
+			It("creates/updates infrastructure using terraform", func() {
+				incomingState := storage.State{
+					AWS: storage.AWS{
+						Region:          "some-aws-region",
+						SecretAccessKey: "some-secret-access-key",
+						AccessKeyID:     "some-access-key-id",
+					},
+					EnvID: "bbl-lake-time-stamp",
+				}
+
+				err := command.Execute(commands.AWSUpConfig{
+					Terraform: true,
+				}, incomingState)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(infrastructureManager.CreateCall.CallCount).To(Equal(0))
+				Expect(terraformManager.ApplyCall.CallCount).To(Equal(1))
+				Expect(terraformManager.ApplyCall.Receives.BBLState).To(Equal(storage.State{
+					IAAS: "aws",
+					AWS: storage.AWS{
+						Region:          "some-aws-region",
+						SecretAccessKey: "some-secret-access-key",
+						AccessKeyID:     "some-access-key-id",
+					},
+					EnvID: "bbl-lake-time-stamp",
+					KeyPair: storage.KeyPair{
+						Name:       "keypair-bbl-lake-time-stamp",
+						PrivateKey: "some-private-key",
+						PublicKey:  "some-public-key",
+					},
+				}))
+
+				Expect(stateStore.SetCall.CallCount).To(Equal(4))
+				Expect(stateStore.SetCall.Receives[2].State).To(Equal(storage.State{
+					IAAS: "aws",
+					AWS: storage.AWS{
+						Region:          "some-aws-region",
+						SecretAccessKey: "some-secret-access-key",
+						AccessKeyID:     "some-access-key-id",
+					},
+					EnvID: "bbl-lake-time-stamp",
+					KeyPair: storage.KeyPair{
+						Name:       "keypair-bbl-lake-time-stamp",
+						PrivateKey: "some-private-key",
+						PublicKey:  "some-public-key",
+					},
+					TFState: "some-tf-state",
+				}))
+			})
 		})
 
 		Context("when the no-director flag is provided", func() {

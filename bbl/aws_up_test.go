@@ -166,6 +166,27 @@ var _ = Describe("bbl up aws", func() {
 	})
 
 	Describe("up", func() {
+		PContext("when the terraform flag is given", func() {
+			It("uses Terraform to create the infrastructure", func() {
+				os.Setenv("BBL_AWS_ACCESS_KEY_ID", "some-access-key")
+				os.Setenv("BBL_AWS_SECRET_ACCESS_KEY", "some-access-secret")
+				os.Setenv("BBL_AWS_REGION", "some-region")
+				args := []string{
+					fmt.Sprintf("--endpoint-override=%s", fakeAWSServer.URL),
+					"--state-dir", tempDirectory,
+					"up",
+					"--iaas", "aws",
+					"--terraform",
+				}
+				session := executeCommand(args, 0)
+
+				state := readStateJson(tempDirectory)
+				Expect(state.Stack).To(Equal(storage.Stack{}))
+
+				Expect(session.Out.Contents()).To(ContainSubstring("terraform apply"))
+			})
+		})
+
 		Context("when AWS creds are provided through environment variables", func() {
 			It("honors the environment variables", func() {
 				os.Setenv("BBL_AWS_ACCESS_KEY_ID", "some-access-key")
