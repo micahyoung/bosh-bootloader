@@ -172,35 +172,45 @@ resource "aws_security_group" "internal_security_group" {
   description = "Internal"
   vpc_id      = "${aws_vpc.vpc.id}"
 
-  ingress {
-    protocol    = "tcp"
-    from_port   = 0
-    to_port     = 65535
-  }
-
-  ingress {
-    protocol    = "udp"
-    from_port   = 0
-    to_port     = 65535
-  }
-
-  ingress {
-    cidr_blocks  = ["0.0.0.0/0"]
-    protocol     = "icmp"
-    from_port    = -1
-    to_port      = -1
-  }
-
-  egress {
-    from_port = 0
-    to_port = 0
-    protocol = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags {
     Name = "${var.env_id}-internal-security-group"
   }
+}
+
+resource "aws_security_group_rule" "internal_security_group_rule_tcp" {
+  security_group_id        = "${aws_security_group.internal_security_group.id}"
+  type                     = "ingress"
+  protocol                 = "tcp"
+  from_port                = 0
+  to_port                  = 65535
+  self                     = true
+}
+
+resource "aws_security_group_rule" "internal_security_group_rule_udp" {
+  security_group_id        = "${aws_security_group.internal_security_group.id}"
+  type                     = "ingress"
+  protocol                 = "udp"
+  from_port                = 0
+  to_port                  = 65535
+  self                     = true
+}
+
+resource "aws_security_group_rule" "internal_security_group_rule_icmp" {
+  security_group_id        = "${aws_security_group.internal_security_group.id}"
+  type                     = "ingress"
+  protocol                 = "icmp"
+  from_port                = -1
+  to_port                  = -1
+  cidr_blocks              = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "internal_security_group_rule_allow_internet" {
+  security_group_id        = "${aws_security_group.internal_security_group.id}"
+  type                     = "egress"
+  protocol                 = "-1"
+  from_port                = 0
+  to_port                  = 0
+  cidr_blocks              = ["0.0.0.0/0"]
 }
 
 output "internal_security_group" {
@@ -216,51 +226,63 @@ resource "aws_security_group" "bosh_security_group" {
   description = "Bosh"
   vpc_id      = "${aws_vpc.vpc.id}"
 
-  ingress {
-    cidr_blocks  = ["${var.bosh_inbound_cidr}"]
-    protocol    = "tcp"
-    from_port   = 22
-    to_port     = 22
-  }
-
-  ingress {
-    cidr_blocks  = ["${var.bosh_inbound_cidr}"]
-    protocol    = "tcp"
-    from_port   = 6868
-    to_port     = 6868
-  }
-
-  ingress {
-    cidr_blocks  = ["${var.bosh_inbound_cidr}"]
-    protocol    = "tcp"
-    from_port   = 25555
-    to_port     = 25555
-  }
-
-  ingress {
-    protocol          = "tcp"
-    from_port         = 0
-    to_port           = 65535
-    security_groups = ["${aws_security_group.internal_security_group.id}"]
-  }
-
-  ingress {
-    protocol          = "udp"
-    from_port         = 0
-    to_port           = 65535
-    security_groups = ["${aws_security_group.internal_security_group.id}"]
-  }
-
-  egress {
-    from_port = 0
-    to_port = 0
-    protocol = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags {
     Name = "${var.env_id}-bosh-security-group"
   }
+}
+
+resource "aws_security_group_rule" "bosh_security_group_rule_tcp_bosh_agent" {
+  security_group_id        = "${aws_security_group.bosh_security_group.id}"
+  type                     = "ingress"
+  protocol                 = "tcp"
+  from_port                = 6868
+  to_port                  = 6868
+  cidr_blocks              = ["${var.bosh_inbound_cidr}"]
+}
+
+resource "aws_security_group_rule" "bosh_security_group_rule_tcp_ssh" {
+  security_group_id        = "${aws_security_group.bosh_security_group.id}"
+  type                     = "ingress"
+  protocol                 = "tcp"
+  from_port                = 22
+  to_port                  = 22
+  cidr_blocks              = ["${var.bosh_inbound_cidr}"]
+}
+
+resource "aws_security_group_rule" "bosh_security_group_rule_tcp_director_api" {
+  security_group_id        = "${aws_security_group.bosh_security_group.id}"
+  type                     = "ingress"
+  protocol                 = "tcp"
+  from_port                = 25555
+  to_port                  = 25555
+  cidr_blocks              = ["${var.bosh_inbound_cidr}"]
+}
+
+resource "aws_security_group_rule" "bosh_security_group_rule_tcp" {
+  security_group_id        = "${aws_security_group.bosh_security_group.id}"
+  type                     = "ingress"
+  protocol                 = "tcp"
+  from_port                = 0
+  to_port                  = 65535
+  source_security_group_id = "${aws_security_group.internal_security_group.id}"
+}
+
+resource "aws_security_group_rule" "bosh_security_group_rule_udp" {
+  security_group_id        = "${aws_security_group.bosh_security_group.id}"
+  type                     = "ingress"
+  protocol                 = "udp"
+  from_port                = 0
+  to_port                  = 65535
+  source_security_group_id = "${aws_security_group.internal_security_group.id}"
+}
+
+resource "aws_security_group_rule" "bosh_security_group_rule_allow_internet" {
+  security_group_id        = "${aws_security_group.bosh_security_group.id}"
+  type                     = "ingress"
+  protocol                 = "-1"
+  from_port                = 0
+  to_port                  = 0
+  cidr_blocks              = ["0.0.0.0/0"]
 }
 
 output "bosh_security_group" {
@@ -508,6 +530,21 @@ output "concourse_lb_internal_security_group" {
   value="${aws_security_group.concourse_lb_internal_security_group.id}"
 }
 
+variable "ssl_certificate" {
+  type = "string"
+}
+
+variable "ssl_certificate_private_key" {
+  type = "string"
+}
+
+resource "aws_iam_server_certificate" "lb_certificate" {
+  name = "${var.env_id}-certificate"
+
+  certificate_body = "${var.ssl_certificate}"
+  private_key = "${var.ssl_certificate_private_key}"
+}
+
 resource "aws_elb" "concourse_lb" {
   name                      = "${substr(var.env_id, 0, 18)}-concourse-lb"
   cross_zone_load_balancing = true
@@ -535,10 +572,11 @@ resource "aws_elb" "concourse_lb" {
   }
 
   listener {
-    instance_port      = 4443
+    instance_port      = 8080
     instance_protocol  = "tcp"
     lb_port            = 443
-    lb_protocol        = "tcp"
+    lb_protocol        = "ssl"
+    ssl_certificate_id = "${aws_iam_server_certificate.lb_certificate.arn}"
   }
 
   security_groups = ["${aws_security_group.concourse_lb_security_group.id}"]
