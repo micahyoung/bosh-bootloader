@@ -3,7 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/cloudfoundry/bosh-bootloader/storage"
 )
@@ -59,16 +58,11 @@ func (l AWSLBs) Execute(subcommandFlags []string, state storage.State) error {
 
 				l.logger.Println(string(lbOutput))
 			} else {
-				fmt.Printf("=======================%s", terraformOutputs)
 				l.logger.Printf("CF Router LB Name: %s\n", terraformOutputs["cf_router_load_balancer"])
 				l.logger.Printf("CF Router LB URL: %s\n", terraformOutputs["cf_router_load_balancer_url"])
 				l.logger.Printf("CF SSH Proxy LB Name: %s\n", terraformOutputs["cf_ssh_proxy_load_balancer"])
 				l.logger.Printf("CF SSH Proxy LB URL: %s\n", terraformOutputs["cf_ssh_proxy_load_balancer_url"])
 
-				servers := terraformOutputs["system_domain_dns_servers"]
-				for _, s := range servers {
-					fmt.Printf("&&&&&&&&&&&&&&&&&&&&&&&%s", s)
-				}
 				if dnsServers, ok := terraformOutputs["system_domain_dns_servers"]; ok {
 					l.logger.Printf("CF System Domain DNS servers: %s\n", dnsServers)
 				}

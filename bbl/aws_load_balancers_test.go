@@ -997,7 +997,7 @@ var _ = Describe("load balancers", func() {
 				callRealInterpolate = false
 			})
 
-			FIt("prints out the currently attached lb names and urls", func() {
+			It("prints out the currently attached lb names and urls", func() {
 				session := lbs("", []string{}, tempDirectory, 0)
 				stdout := session.Out.Contents()
 
@@ -1009,9 +1009,6 @@ var _ = Describe("load balancers", func() {
 			})
 
 			It("prints out the currently attached lb names and urls in JSON", func() {
-				// state := readStateJson(tempDirectory)
-				// fmt.Printf("==============================%s", state.LB)
-				// fmt.Println(state)
 				session := lbs("", []string{"--json"}, tempDirectory, 0)
 				stdout := session.Out.Contents()
 
